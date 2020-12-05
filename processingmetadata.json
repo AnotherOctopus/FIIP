@@ -1,0 +1,18 @@
+{
+    "basedir": "/media/turro/CHARLES/fiip/data",
+    
+    "netdT":0.05,
+    "goodfreqdir": "raw/good",
+    "badfreqdir": "raw/bad",
+    "rawcorpusesdir":"raw/corpuses",
+
+    "actors": ["homestead"],
+
+    "generaltimechunks": "raw/timechunks/general",
+    "goodactortimechunks": "raw/timechunks/goodactor",
+    "badactortimechunks": "raw/timechunks/badactor",
+
+    "generalcurated":  "generalinputs",
+    "badcurated":  "generalinputs",
+    "goodcurated": "curatedinputs"
+}
