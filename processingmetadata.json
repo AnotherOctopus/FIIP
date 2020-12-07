@@ -7,12 +7,30 @@
     "rawcorpusesdir":"raw/corpuses",
 
     "actors": ["homestead"],
+    "actorrepeatcnt": 10,
 
     "generaltimechunks": "raw/timechunks/general",
     "goodactortimechunks": "raw/timechunks/goodactor",
     "badactortimechunks": "raw/timechunks/badactor",
 
     "generalcurated":  "generalinputs",
-    "badcurated":  "generalinputs",
-    "goodcurated": "curatedinputs"
+    "badcurated":  "badinputs",
+    "goodcurated": "goodinputs",
+    "rebuild":"/media/turro/CHARLES/fiip/data/badinputs/homestead",
+
+    "baddatalocations": [
+        ["netfeeder/insystemdiscriminator/training/bad", 10],
+        ["netfeeder/insystemdiscriminator/validation/bad", 1],
+        ["netfeeder/pretraindiscriminator/training/bad", 10],
+        ["netfeeder/pretraindiscriminator/validation/bad", 1],
+        ["netfeeder/insystemgenerator/training", 10],
+        ["netfeeder/insystemgenerator/validation", 1]
+    ],
+
+    "gooddatalocations": [
+        ["netfeeder/insystemdiscriminator/training/good", 10],
+        ["netfeeder/insystemdiscriminator/validation/good", 1],
+        ["netfeeder/pretraindiscriminator/training/good", 10],
+        ["netfeeder/pretraindiscriminator/validation/bad", 1]
+    ]
 }
