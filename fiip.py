@@ -8,6 +8,10 @@ import numpy as np
 import random
 import shutil
 import pathlib
+import keras
+import tensorflow as tf
+from DataFeeder import PreTrainDiscrFeeder
+from nets import FIIPDiscriminator
 
 datajson = "/home/turro/Repos/FIIP/processingmetadata.json"
 targetsamplingrate = 22050
@@ -30,7 +34,7 @@ def rawtochunks(indir,outdir,chunkduration,tag):
         for chunk in chunks:
             if np.average(chunk) != 0:
                 with open(os.path.join(outdir,"{}{}.pkl".format(tag,str(idx).zfill(6))),"wb+") as fh:
-                    pickle.dump(chunk[1::int(samplingrate/targetsamplingrate)],fh)
+                    pickle.dump(chunk[::int(samplingrate/targetsamplingrate)][:int(targetsamplingrate*chunkduration)],fh)
                 idx += 1
 
 def chunktofreq(indir,outdir):
@@ -82,9 +86,7 @@ def generatenetfeederstructure():
     baddatalocations = [os.path.join(metadata["basedir"],d[0]) for d in metadata["baddatalocations"]]
     gooddatalocations = [os.path.join(metadata["basedir"],d[0]) for d in metadata["gooddatalocations"]]
     alldirstomake = baddatalocations + gooddatalocations
-    print(alldirstomake)
     for dirtomake  in alldirstomake:
-        print(dirtomake)
         pathlib.Path(dirtomake).mkdir(parents=True, exist_ok=True)
 def splitintotrainingsets():
     actortomodel = "homestead"
@@ -125,7 +127,59 @@ def splitintotrainingsets():
             idx = 0
             placeidx = (placeidx + 1)%len(baddataratio)
 
+def sandbox():
+    chunkduration = float(metadata["netdT"])
 
+    traininggooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][0][0])
+    trainingbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
+    validationgooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][1][0])
+    validationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
+    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(int(chunkduration*targetsamplingrate),2))
+    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(int(chunkduration*targetsamplingrate),2))
+
+    discriminator = FIIPDiscriminator()
+    print(discriminator.summary())
+    for  i in range(5):
+        batch = preTrainDiscDataset.__getitem__(i)
+        print(batch[0].shape,batch[1].shape)
+    preTrainDiscDataset.on_epoch_end()
+    print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+    for  i in range(5):
+        batch = preTrainDiscDataset.__getitem__(i)
+        print(batch[0].shape,batch[1].shape)
+def pretraindiscriminator():
+    physical_devices = tf.config.list_physical_devices('GPU') 
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    chunkduration = float(metadata["netdT"])
+
+    traininggooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][0][0])
+    trainingbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
+    validationgooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][1][0])
+    validationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
+    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(int(chunkduration*targetsamplingrate),2))
+    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(int(chunkduration*targetsamplingrate),2))
+
+    discriminator = FIIPDiscriminator()
+    print(discriminator.summary())
+    discriminator.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=0.1),
+        loss=tf.keras.losses.BinaryCrossentropy(),
+        metrics=[
+            tf.keras.metrics.TruePositives(),
+            tf.keras.metrics.TrueNegatives(),
+            tf.keras.metrics.FalsePositives(),
+            tf.keras.metrics.FalseNegatives()
+        ]
+    )
+
+    hist = discriminator.fit(
+        x = preTrainDiscDataset,
+        epochs=50,
+        verbose=1,
+        validation_data=preValidDiscDataset
+    )
+    with open(os.path.join(metadata["basedir"],metadata["lasttraininghistory"]),"wb+") as fh:
+        pickle.dump(hist.history,fh)
 if __name__ == "__main__":
         jobs = {
             "generalrawtochunks":generalrawtochunks,
@@ -135,6 +189,8 @@ if __name__ == "__main__":
             "reconstructfreqdir":reconstructfreqdir,
             "splitintotrainingsets": splitintotrainingsets,
             "generatenetfeederstructure": generatenetfeederstructure,
+            "pretraindiscriminator": pretraindiscriminator,
+            "sandbox":sandbox,
             "exit":exit
         }
         print("jobs")

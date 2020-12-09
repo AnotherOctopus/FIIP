@@ -18,6 +18,8 @@
     "goodcurated": "goodinputs",
     "rebuild":"/media/turro/CHARLES/fiip/data/badinputs/homestead",
 
+
+    "lasttraininghistory": "hist.pkl",
     "baddatalocations": [
         ["netfeeder/insystemdiscriminator/training/bad", 10],
         ["netfeeder/insystemdiscriminator/validation/bad", 1],
@@ -31,6 +33,6 @@
         ["netfeeder/insystemdiscriminator/training/good", 10],
         ["netfeeder/insystemdiscriminator/validation/good", 1],
         ["netfeeder/pretraindiscriminator/training/good", 10],
-        ["netfeeder/pretraindiscriminator/validation/bad", 1]
+        ["netfeeder/pretraindiscriminator/validation/good", 1]
     ]
 }
