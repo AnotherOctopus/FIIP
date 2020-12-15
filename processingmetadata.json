@@ -1,7 +1,10 @@
 {
     "basedir": "/media/turro/CHARLES/fiip/data",
     
-    "netdT":0.05,
+    "netdT":0.05, 
+    "targetsamplerate":22050,
+    "slicesize": 1,
+
     "goodfreqdir": "raw/good",
     "badfreqdir": "raw/bad",
     "rawcorpusesdir":"raw/corpuses",
@@ -9,9 +12,9 @@
     "actors": ["homestead"],
     "actorrepeatcnt": 10,
 
-    "generaltimechunks": "raw/timechunks/general",
-    "goodactortimechunks": "raw/timechunks/goodactor",
-    "badactortimechunks": "raw/timechunks/badactor",
+    "generaltimechunks": "raw/STFT/general",
+    "goodactortimechunks": "raw/STFT/goodactor",
+    "badactortimechunks": "raw/STFT/badactor",
 
     "generalcurated":  "generalinputs",
     "badcurated":  "badinputs",

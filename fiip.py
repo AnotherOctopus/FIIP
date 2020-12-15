@@ -10,66 +10,79 @@ import shutil
 import pathlib
 import keras
 import tensorflow as tf
+from scipy import signal
+import matplotlib.pyplot as plt
 from DataFeeder import PreTrainDiscrFeeder
 from nets import FIIPDiscriminator
 
 datajson = "/home/turro/Repos/FIIP/processingmetadata.json"
-targetsamplingrate = 22050
 with open(datajson) as jsonfh:
     metadata = json.load(jsonfh)
 
-def rawtochunks(indir,outdir,chunkduration,tag):
-    rawwavs = []
+def rawtoSTFT(indir,outdir):
+    targetsamplingrate = metadata["targetsamplerate"]
+    dT = metadata["netdT"]
     for filename in os.listdir(indir):
         if filename.endswith((".wav",".WAV")):
-            rawwavs.append(os.path.join(indir,filename))
-    idx = 0
-    for wav in rawwavs:
-        rawdata,samplingrate = sf.read(wav)
-        chunks = []
-        chunkstep = int(chunkduration*samplingrate)
-        for chunkidx in range(0,len(rawdata) - chunkstep,chunkstep):
-            for band in range(rawdata.shape[1]):
-                chunks.append(rawdata[chunkidx : chunkidx + chunkstep,band]) #[band])
-        for chunk in chunks:
-            if np.average(chunk) != 0:
-                with open(os.path.join(outdir,"{}{}.pkl".format(tag,str(idx).zfill(6))),"wb+") as fh:
-                    pickle.dump(chunk[::int(samplingrate/targetsamplingrate)][:int(targetsamplingrate*chunkduration)],fh)
-                idx += 1
+            wav = os.path.join(indir,filename)
+            rawdata,samplingrate = sf.read(wav)
+            print(rawdata.shape)
+            rawdata = rawdata[::int(samplingrate/targetsamplingrate)][:,0]
+            print(rawdata.shape)
+            f, t, Zxx = signal.stft(rawdata, targetsamplingrate, 
+                                    nperseg=int(targetsamplingrate*dT)
+                                    )
+            print(f.shape,t.shape,Zxx.shape)
+            data = {
+                "sr":targetsamplingrate,
+                "nperseg": int(targetsamplingrate*dT),
+                "f":f,
+                "t":t,
+                "Z":Zxx
+            }
+            with open(os.path.join(outdir,"{}.pkl".format(filename.split(".")[0])),"wb+") as fh:
+                pickle.dump(data,fh)
 
-def chunktofreq(indir,outdir):
+def STFTtoslices(indir,outdir):
     for filename in os.listdir(indir):
         with open(os.path.join(indir,filename),"rb")  as fh:
-            chunk = pickle.load(fh)
-        with open(os.path.join(outdir,filename),"wb+") as fh:
-            freq = fft(chunk)
-            freqsplit = np.stack((freq.real,freq.imag))
-            pickle.dump(freqsplit,fh)
+            data = pickle.load(fh)
+        for sliceidx,t in enumerate(data["t"]):
+            if t > metadata["slicesize"]:
+                break
+        padding = np.zeros((data["Z"].shape[0],sliceidx - data["Z"].shape[1]%sliceidx))
+        tocut = np.concatenate((data["Z"],padding),axis=1)
 
-def badsoundtochunks():
-    chunkduration = metadata["netdT"]
+        for i in range(0,tocut.shape[1],sliceidx):
+            chunk = tocut[:,i :  i + sliceidx]
+            with open(os.path.join(outdir,str(int(i/sliceidx)) + filename),"wb+") as fh:
+                freqsplit = np.stack((chunk.real,chunk.imag),axis = 2)
+                print(freqsplit.shape)
+                pickle.dump(freqsplit,fh)
+
+def badrawtoSTFT():
     badsounddir = os.path.join(metadata["basedir"],metadata["badfreqdir"])
     badsoundtimechunkdir = os.path.join(metadata["basedir"],metadata["badactortimechunks"])
     for actor in metadata["actors"]:
-        rawtochunks(os.path.join(badsounddir,actor),os.path.join(badsoundtimechunkdir,actor),chunkduration,actor)
+        rawtoSTFT(os.path.join(badsounddir,actor),os.path.join(badsoundtimechunkdir,actor))
 
-def badsoundtofreq():
+def badSTFTtoslices():
     badtimechunkdir = os.path.join(metadata["basedir"],metadata["badactortimechunks"])
     badfreqchunkdir = os.path.join(metadata["basedir"],metadata["badcurated"])
     for actor in metadata["actors"]:
-        chunktofreq(os.path.join(badtimechunkdir,actor),os.path.join(badfreqchunkdir,actor))
+        STFTtoslices(os.path.join(badtimechunkdir,actor),os.path.join(badfreqchunkdir,actor))
 
-def generalrawtochunks():
+def generalrawtoSTFT():
     chunkduration = metadata["netdT"]
     generalcorpusdir = os.path.join(metadata["basedir"],metadata["rawcorpusesdir"])
     generaltimechunkdir = os.path.join(metadata["basedir"],metadata["generaltimechunks"])
-    rawtochunks(generalcorpusdir,generaltimechunkdir,chunkduration,"general")
+    rawtoSTFT(generalcorpusdir,generaltimechunkdir)
 
 
-def generalchunkstofreq():
+def generalSTFTtoslices():
     generaltimechunkdir = os.path.join(metadata["basedir"],metadata["generaltimechunks"])
     generalfreqchunkdir = os.path.join(metadata["basedir"],metadata["generalcurated"])
-    chunktofreq(generaltimechunkdir,generalfreqchunkdir)
+    STFTtoslices(generaltimechunkdir,generalfreqchunkdir)
 
 def reconstructfreqdir():
     dirtoreconstruct = os.path.join(metadata["basedir"],metadata["rebuild"])
@@ -128,38 +141,30 @@ def splitintotrainingsets():
             placeidx = (placeidx + 1)%len(baddataratio)
 
 def sandbox():
-    chunkduration = float(metadata["netdT"])
+    data = pickle.load(open("/media/turro/CHARLES/fiip/data/netfeeder/pretraindiscriminator/training/good/33SBC001.pkl","rb"))
+    def adder(a):
+        return 100*(a[0] + a[1])
+    data = np.apply_along_axis(adder,2,data)
+    plt.imshow(data, cmap='hot', interpolation='nearest')
+    plt.show()
 
-    traininggooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][0][0])
-    trainingbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
-    validationgooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][1][0])
-    validationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
-    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(int(chunkduration*targetsamplingrate),2))
-    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(int(chunkduration*targetsamplingrate),2))
+    print(data.shape)
 
-    discriminator = FIIPDiscriminator()
-    print(discriminator.summary())
-    for  i in range(5):
-        batch = preTrainDiscDataset.__getitem__(i)
-        print(batch[0].shape,batch[1].shape)
-    preTrainDiscDataset.on_epoch_end()
-    print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-    for  i in range(5):
-        batch = preTrainDiscDataset.__getitem__(i)
-        print(batch[0].shape,batch[1].shape)
+
 def pretraindiscriminator():
     physical_devices = tf.config.list_physical_devices('GPU') 
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    targetsamplingrate = metadata["targetsamplerate"]
     chunkduration = float(metadata["netdT"])
 
     traininggooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][0][0])
     trainingbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
     validationgooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][1][0])
     validationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
-    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(int(chunkduration*targetsamplingrate),2))
-    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(int(chunkduration*targetsamplingrate),2))
+    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(552,41,2))
+    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(552,41,2))
 
-    discriminator = FIIPDiscriminator()
+    discriminator = FIIPDiscriminator((552,41,2))
     print(discriminator.summary())
     discriminator.compile(
         optimizer=keras.optimizers.Adam(learning_rate=0.1),
@@ -182,13 +187,17 @@ def pretraindiscriminator():
         pickle.dump(hist.history,fh)
 if __name__ == "__main__":
         jobs = {
-            "generalrawtochunks":generalrawtochunks,
-            "generalchunkstofreq":generalchunkstofreq,
-            "badrawtochunks":badsoundtochunks,
-            "badsoundtofreq":badsoundtofreq,
+            "generalrawtoSTFT":generalrawtoSTFT,
+            "badrawtoSTFT":badrawtoSTFT,
+
+            "generalSTFTtoslices":generalSTFTtoslices,
+            "badSTFTtoslices":badSTFTtoslices,
+
             "reconstructfreqdir":reconstructfreqdir,
             "splitintotrainingsets": splitintotrainingsets,
+
             "generatenetfeederstructure": generatenetfeederstructure,
+
             "pretraindiscriminator": pretraindiscriminator,
             "sandbox":sandbox,
             "exit":exit
