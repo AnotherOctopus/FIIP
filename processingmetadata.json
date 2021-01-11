@@ -4,12 +4,13 @@
     "netdT":0.05, 
     "targetsamplerate":22050,
     "slicesize": 1,
+    "freqidxcut":200,
 
     "goodfreqdir": "raw/good",
     "badfreqdir": "raw/bad",
     "rawcorpusesdir":"raw/corpuses",
 
-    "actors": ["homestead"],
+    "actors": ["homesteadcurated"],
     "actorrepeatcnt": 10,
 
     "generaltimechunks": "raw/STFT/general",
@@ -24,18 +25,18 @@
 
     "lasttraininghistory": "hist.pkl",
     "baddatalocations": [
+        ["netfeeder/pretraindiscriminator/training/bad", 100],
+        ["netfeeder/pretraindiscriminator/validation/bad", 10],
         ["netfeeder/insystemdiscriminator/training/bad", 10],
         ["netfeeder/insystemdiscriminator/validation/bad", 1],
-        ["netfeeder/pretraindiscriminator/training/bad", 10],
-        ["netfeeder/pretraindiscriminator/validation/bad", 1],
         ["netfeeder/insystemgenerator/training", 10],
         ["netfeeder/insystemgenerator/validation", 1]
     ],
 
     "gooddatalocations": [
+        ["netfeeder/pretraindiscriminator/training/good", 100],
+        ["netfeeder/pretraindiscriminator/validation/good", 10],
         ["netfeeder/insystemdiscriminator/training/good", 10],
-        ["netfeeder/insystemdiscriminator/validation/good", 1],
-        ["netfeeder/pretraindiscriminator/training/good", 10],
-        ["netfeeder/pretraindiscriminator/validation/good", 1]
+        ["netfeeder/insystemdiscriminator/validation/good", 1]
     ]
 }

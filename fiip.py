@@ -47,17 +47,17 @@ def STFTtoslices(indir,outdir):
     for filename in os.listdir(indir):
         with open(os.path.join(indir,filename),"rb")  as fh:
             data = pickle.load(fh)
-        for sliceidx,t in enumerate(data["t"]):
-            if t > metadata["slicesize"]:
-                break
-        padding = np.zeros((data["Z"].shape[0],sliceidx - data["Z"].shape[1]%sliceidx))
-        tocut = np.concatenate((data["Z"],padding),axis=1)
+        cutidxs = []
+        lastT = 0
+        for i,t in enumerate(data["t"]):
+            if t - lastT > metadata["slicesize"]:
+                lastT = t
+                cutidxs.append(i)
 
-        for i in range(0,tocut.shape[1],sliceidx):
-            chunk = tocut[:,i :  i + sliceidx]
-            with open(os.path.join(outdir,str(int(i/sliceidx)) + filename),"wb+") as fh:
-                freqsplit = np.stack((chunk.real,chunk.imag),axis = 2)
-                print(freqsplit.shape)
+        for i in range(len(cutidxs) - 1):
+            chunk = data["Z"][:metadata["freqidxcut"],cutidxs[i] :  cutidxs[i + 1] ]
+            with open(os.path.join(outdir,str(i) + filename),"wb+") as fh:
+                freqsplit = np.absolute(chunk)
                 pickle.dump(freqsplit,fh)
 
 def badrawtoSTFT():
@@ -102,7 +102,7 @@ def generatenetfeederstructure():
     for dirtomake  in alldirstomake:
         pathlib.Path(dirtomake).mkdir(parents=True, exist_ok=True)
 def splitintotrainingsets():
-    actortomodel = "homestead"
+    actortomodel = "homesteadcurated"
 
     gooddatadir = os.path.join(metadata["basedir"],metadata["generalcurated"])
     gooddatadirrep = os.path.join(metadata["basedir"],metadata["goodcurated"],actortomodel)
@@ -141,14 +141,24 @@ def splitintotrainingsets():
             placeidx = (placeidx + 1)%len(baddataratio)
 
 def sandbox():
-    data = pickle.load(open("/media/turro/CHARLES/fiip/data/netfeeder/pretraindiscriminator/training/good/33SBC001.pkl","rb"))
-    def adder(a):
-        return 100*(a[0] + a[1])
-    data = np.apply_along_axis(adder,2,data)
-    plt.imshow(data, cmap='hot', interpolation='nearest')
-    plt.show()
+    badtrainingdir = "/media/turro/CHARLES/fiip/data/badinputs/homesteadcurated"
+    goodtrainingdir = "/media/turro/CHARLES/fiip/data/netfeeder/pretraindiscriminator/training/good"
+    baddata = np.zeros((552,41))
+    cnt = 0
+    maxval = 1
+    for f in os.listdir(goodtrainingdir):
+        cnt += 1
+        with open(os.path.join(goodtrainingdir,f),"rb")  as fh:
+            data = pickle.load(fh)
+            baddata = np.add(baddata,data)
+    badline = np.apply_along_axis(np.sum,1,baddata)
+    freqcut = 200
 
-    print(data.shape)
+
+    plt.plot(badline)
+    plt.figure(2)
+    plt.imshow(baddata,cmap = "gray")
+    plt.show()
 
 
 def pretraindiscriminator():
@@ -161,13 +171,13 @@ def pretraindiscriminator():
     trainingbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
     validationgooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][1][0])
     validationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
-    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(552,41,2))
-    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(552,41,2))
+    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(200,41,1))
+    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(200,41,1))
 
-    discriminator = FIIPDiscriminator((552,41,2))
+    discriminator = FIIPDiscriminator((200,41,1))
     print(discriminator.summary())
     discriminator.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=0.1),
+        optimizer=keras.optimizers.Adam(learning_rate=0.0003),
         loss=tf.keras.losses.BinaryCrossentropy(),
         metrics=[
             tf.keras.metrics.TruePositives(),
@@ -179,12 +189,13 @@ def pretraindiscriminator():
 
     hist = discriminator.fit(
         x = preTrainDiscDataset,
-        epochs=50,
+        epochs=10,
         verbose=1,
         validation_data=preValidDiscDataset
     )
     with open(os.path.join(metadata["basedir"],metadata["lasttraininghistory"]),"wb+") as fh:
         pickle.dump(hist.history,fh)
+    discriminator.save("pretraineddiscriminator.mdl")
 if __name__ == "__main__":
         jobs = {
             "generalrawtoSTFT":generalrawtoSTFT,
@@ -202,12 +213,13 @@ if __name__ == "__main__":
             "sandbox":sandbox,
             "exit":exit
         }
-        print("jobs")
         jobidx = []
         for i,j in enumerate(jobs):
-            print(i, ": ", j)
             jobidx.append(jobs[j])
              
         while True:
+            print("jobs")
+            for i,j in enumerate(jobs):
+                print(i, ": ", j)
             job = int(input("Select a job index: "))
             jobidx[job]()

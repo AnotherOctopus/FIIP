@@ -4,12 +4,12 @@ class FIIPDiscriminator(tf.keras.Model):
   def __init__(self,input_shape):
     super(FIIPDiscriminator, self).__init__()
     self.inshape = input_shape
-    self.conv1  = tf.keras.layers.Conv2D(10,(20,20),activation=tf.nn.tanh,input_shape = input_shape)
-    self.conv2  = tf.keras.layers.Conv2D(10,(20,20),activation=tf.nn.tanh)
+    self.conv1  = tf.keras.layers.Conv2D(40,(10,10),activation=tf.nn.tanh,input_shape = input_shape)
+    self.conv2  = tf.keras.layers.Conv2D(40,(10,10),activation=tf.nn.tanh)
     self.flat1   = tf.keras.layers.Flatten()
-    self.dense1 = tf.keras.layers.Dense(70, activation=tf.nn.tanh)
-    self.dense2 = tf.keras.layers.Dense(50, activation=tf.nn.tanh)
-    self.dense3 = tf.keras.layers.Dense(10, activation=tf.nn.tanh)
+    self.dense1 = tf.keras.layers.Dense(150, activation=tf.nn.tanh)
+    self.dense2 = tf.keras.layers.Dense(70, activation=tf.nn.tanh)
+    self.dense3 = tf.keras.layers.Dense(30, activation=tf.nn.tanh)
     self.dense4 = tf.keras.layers.Dense(1, activation=tf.nn.sigmoid)
 
   def call(self, inputs):

@@ -7,7 +7,7 @@ import pickle
 
 class PreTrainDiscrFeeder(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, gooddatadir,baddatadir, dim, batch_size=8, shuffle=True):
+    def __init__(self, gooddatadir,baddatadir, dim, batch_size=4, shuffle=True):
         'Initialization'
         self.gooddatadir = gooddatadir
         self.baddatadir  = baddatadir
@@ -23,6 +23,7 @@ class PreTrainDiscrFeeder(keras.utils.Sequence):
 
         self.indexes = np.arange(len(self.alldata))
         random.shuffle(self.indexes)
+        print(self.indexes.shape)
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -57,9 +58,9 @@ class PreTrainDiscrFeeder(keras.utils.Sequence):
         for i, datafile in enumerate(data):
             # Store sample
             with open(datafile,"rb") as fh:
-                X[i,] = pickle.load(fh)*100
+                X[i,] = np.expand_dims(pickle.load(fh),axis = 2)
 
             # Store class
             Y[i] = labels[i]
 
-        return X, Y
+        return X, Y,
