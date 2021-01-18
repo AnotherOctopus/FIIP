@@ -1,10 +1,13 @@
 {
     "basedir": "/media/turro/CHARLES/fiip/data",
+
+
+    "fakedir": "netfeeder/fakeouts/",
     
     "netdT":0.05, 
     "targetsamplerate":22050,
     "slicesize": 1,
-    "freqidxcut":200,
+    "freqidxcut":552,
 
     "goodfreqdir": "raw/good",
     "badfreqdir": "raw/bad",
@@ -27,8 +30,8 @@
     "baddatalocations": [
         ["netfeeder/pretraindiscriminator/training/bad", 100],
         ["netfeeder/pretraindiscriminator/validation/bad", 10],
-        ["netfeeder/insystemdiscriminator/training/bad", 10],
-        ["netfeeder/insystemdiscriminator/validation/bad", 1],
+        ["netfeeder/pretraingenerator/training/bad", 10],
+        ["netfeeder/pretraingenerator/validation/bad", 1],
         ["netfeeder/insystemgenerator/training", 10],
         ["netfeeder/insystemgenerator/validation", 1]
     ],
@@ -36,7 +39,7 @@
     "gooddatalocations": [
         ["netfeeder/pretraindiscriminator/training/good", 100],
         ["netfeeder/pretraindiscriminator/validation/good", 10],
-        ["netfeeder/insystemdiscriminator/training/good", 10],
-        ["netfeeder/insystemdiscriminator/validation/good", 1]
+        ["netfeeder/pretraingenerator/training/good", 10],
+        ["netfeeder/pretraingenerator/validation/good", 1]
     ]
 }

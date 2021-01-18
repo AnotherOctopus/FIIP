@@ -12,8 +12,8 @@ import keras
 import tensorflow as tf
 from scipy import signal
 import matplotlib.pyplot as plt
-from DataFeeder import PreTrainDiscrFeeder
-from nets import FIIPDiscriminator
+from DataFeeder import PreTrainDiscrFeeder, GeneratorFeeder
+from nets import FIIPDiscriminator, FIIPGenerator
 
 datajson = "/home/turro/Repos/FIIP/processingmetadata.json"
 with open(datajson) as jsonfh:
@@ -141,40 +141,109 @@ def splitintotrainingsets():
             placeidx = (placeidx + 1)%len(baddataratio)
 
 def sandbox():
-    badtrainingdir = "/media/turro/CHARLES/fiip/data/badinputs/homesteadcurated"
-    goodtrainingdir = "/media/turro/CHARLES/fiip/data/netfeeder/pretraindiscriminator/training/good"
-    baddata = np.zeros((552,41))
-    cnt = 0
-    maxval = 1
-    for f in os.listdir(goodtrainingdir):
-        cnt += 1
-        with open(os.path.join(goodtrainingdir,f),"rb")  as fh:
-            data = pickle.load(fh)
-            baddata = np.add(baddata,data)
-    badline = np.apply_along_axis(np.sum,1,baddata)
-    freqcut = 200
+    trainingbaddatadir   = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
+    validationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
+    freqidxcut = metadata["freqidxcut"]
+    preTrainDataset = GeneratorFeeder(trainingbaddatadir,(freqidxcut,41,1))
+    for i in range(len(trainingbaddatadir)):
+        print(i)
+        batch = trainingbaddatadir.__getitem__(i)
+        print(batch)
+
+    return
+    testfile = "/media/turro/CHARLES/fiip/data/netfeeder/pretraindiscriminator/validation/bad/475badaudiocurated10.pkl"
+    descriminator = keras.models.load_model('/home/turro/Repos/FIIP/pretraineddiscriminator.mdl')
+    testdata = pickle.load(open(testfile,"rb"))
+    testdata = np.expand_dims(testdata,axis = 0)
+    testdata = np.expand_dims(testdata,axis = 3)
+    print(testdata.shape)
+    print(model.predict(testdata))
+    generator = FIIPGenerator((freqidxcut,41,1))
 
 
-    plt.plot(badline)
-    plt.figure(2)
-    plt.imshow(baddata,cmap = "gray")
-    plt.show()
 
 
+def pretraingenerator():
+    physical_devices = tf.config.list_physical_devices('GPU') 
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+    targetsamplingrate = metadata["targetsamplerate"]
+    chunkduration = float(metadata["netdT"])
+    freqidxcut = metadata["freqidxcut"]
+
+    Gtrainingbaddatadir   = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
+    Gvalidationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
+    Dtraininggooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][0][0])
+    #trainingbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
+    Dtrainingbaddatadir = os.path.join(metadata["basedir"],metadata["fakedir"])
+    Dvalidationgooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][1][0])
+    Dvalidationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
+
+    discriminator = keras.models.load_model('/home/turro/Repos/FIIP/pretraineddiscriminator.mdl')
+    discriminator.trainable = False
+    generator = FIIPGenerator((freqidxcut,41,1))
+    generator.build((8,freqidxcut,41,1))
+
+    GAN = tf.keras.models.Sequential()
+    GAN.add(generator)
+    GAN.add(discriminator)
+    GAN.build((8,freqidxcut,41,1))
+
+    GAN.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=0.0003),
+        loss=tf.keras.losses.BinaryCrossentropy(),
+        metrics=[
+            tf.keras.metrics.TruePositives(),
+            tf.keras.metrics.TrueNegatives(),
+            tf.keras.metrics.FalsePositives(),
+            tf.keras.metrics.FalseNegatives()
+        ]
+    )
+    es = tf.keras.callbacks.EarlyStopping(monitor='val_loss',mode = "min",verbose = 1,patience=10,restore_best_weights=True)
+
+    print(GAN.summary())
+    print(generator.summary())
+    for i in range(3):
+        preTrainDataset = GeneratorFeeder(Gtrainingbaddatadir,(freqidxcut,41,1))
+        preValidDataset = GeneratorFeeder(Gvalidationbaddatadir,(freqidxcut,41,1))
+        hist = GAN.fit(
+            x = preTrainDataset,
+            epochs=1,
+            verbose=1,
+            validation_data=preValidDataset,
+            callbacks= [es]
+        )
+        for i in range(len(preTrainDataset)):
+            batch = preTrainDataset[i]
+            generated = generator.predict(batch[0])
+            for j in range(generated.shape[0]):
+                with open(os.path.join(metadata["basedir"],metadata["fakedir"],"{}-{}.pkl".format(str(i),str(j))),"wb+") as fh:
+                    pickle.dump(np.squeeze(generated[j]),fh)
+        preTrainDiscDataset = PreTrainDiscrFeeder(Dtraininggooddatadir,Dtrainingbaddatadir,(freqidxcut,41,1))
+        preValidDiscDataset = PreTrainDiscrFeeder(Dvalidationgooddatadir,Dvalidationbaddatadir,(freqidxcut,41,1))
+        hist = discriminator.fit(
+            x = preTrainDiscDataset,
+            epochs=1,
+            verbose=1,
+            validation_data=preValidDiscDataset,
+            callbacks= [es]
+        )
 def pretraindiscriminator():
     physical_devices = tf.config.list_physical_devices('GPU') 
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
     targetsamplingrate = metadata["targetsamplerate"]
+    freqidxcut = metadata["freqidxcut"]
     chunkduration = float(metadata["netdT"])
 
     traininggooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][0][0])
-    trainingbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
+    #trainingbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][0][0])
+    trainingbaddatadir = os.path.join(metadata["basedir"],metadata["fakedir"])
     validationgooddatadir = os.path.join(metadata["basedir"],metadata["gooddatalocations"][1][0])
     validationbaddatadir = os.path.join(metadata["basedir"],metadata["baddatalocations"][1][0])
-    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(200,41,1))
-    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(200,41,1))
+    preTrainDiscDataset = PreTrainDiscrFeeder(traininggooddatadir,trainingbaddatadir,(freqidxcut,41,1))
+    preValidDiscDataset = PreTrainDiscrFeeder(validationgooddatadir,validationbaddatadir,(freqidxcut,41,1))
 
-    discriminator = FIIPDiscriminator((200,41,1))
+    discriminator = FIIPDiscriminator((freqidxcut,41,1))
     print(discriminator.summary())
     discriminator.compile(
         optimizer=keras.optimizers.Adam(learning_rate=0.0003),
@@ -187,12 +256,15 @@ def pretraindiscriminator():
         ]
     )
 
+    es = tf.keras.callbacks.EarlyStopping(monitor='val_loss',mode = "min",verbose = 1,patience=10,restore_best_weights=True)
     hist = discriminator.fit(
         x = preTrainDiscDataset,
-        epochs=10,
+        epochs=1,
         verbose=1,
-        validation_data=preValidDiscDataset
+        validation_data=preValidDiscDataset,
+        callbacks= [es]
     )
+
     with open(os.path.join(metadata["basedir"],metadata["lasttraininghistory"]),"wb+") as fh:
         pickle.dump(hist.history,fh)
     discriminator.save("pretraineddiscriminator.mdl")
@@ -210,6 +282,7 @@ if __name__ == "__main__":
             "generatenetfeederstructure": generatenetfeederstructure,
 
             "pretraindiscriminator": pretraindiscriminator,
+            "pretraingenerator": pretraingenerator,
             "sandbox":sandbox,
             "exit":exit
         }
