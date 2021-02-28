@@ -14,7 +14,7 @@
     "rawcorpusesdir":"raw/corpuses",
 
     "actors": ["homesteadcurated"],
-    "actorrepeatcnt": 10,
+    "actorrepeatcnt": 1,
 
     "generaltimechunks": "raw/STFT/general",
     "goodactortimechunks": "raw/STFT/goodactor",
@@ -28,18 +28,12 @@
 
     "lasttraininghistory": "hist.pkl",
     "baddatalocations": [
-        ["netfeeder/pretraindiscriminator/training/bad", 100],
-        ["netfeeder/pretraindiscriminator/validation/bad", 10],
-        ["netfeeder/pretraingenerator/training/bad", 10],
-        ["netfeeder/pretraingenerator/validation/bad", 1],
-        ["netfeeder/insystemgenerator/training", 10],
-        ["netfeeder/insystemgenerator/validation", 1]
+        ["netfeeder/training/bad", 10],
+        ["netfeeder/validation/bad", 1]
     ],
 
     "gooddatalocations": [
-        ["netfeeder/pretraindiscriminator/training/good", 100],
-        ["netfeeder/pretraindiscriminator/validation/good", 10],
-        ["netfeeder/pretraingenerator/training/good", 10],
-        ["netfeeder/pretraingenerator/validation/good", 1]
+        ["netfeeder/training/good", 10],
+        ["netfeeder/validation/good", 1]
     ]
 }

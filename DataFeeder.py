@@ -7,7 +7,7 @@ import pickle
 
 class GeneratorFeeder(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self,baddatadir, dim, batch_size=8, shuffle=True):
+    def __init__(self,baddatadir, dim, batch_size=16, shuffle=True):
         'Initialization'
         self.baddatadir  = baddatadir
         self.dim = dim
@@ -58,9 +58,9 @@ class GeneratorFeeder(keras.utils.Sequence):
 
         return X, Y,
 
-class PreTrainDiscrFeeder(keras.utils.Sequence):
+class DiscrFeeder(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, gooddatadir,baddatadir, dim, batch_size=8, shuffle=True):
+    def __init__(self, gooddatadir,baddatadir, dim, batch_size=64, shuffle=True):
         'Initialization'
         self.gooddatadir = gooddatadir
         self.baddatadir  = baddatadir
